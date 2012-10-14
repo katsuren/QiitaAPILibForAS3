@@ -111,6 +111,42 @@ package com.k2rn.qiita
     * Qiita.as
     * 
     * <p>Qiita の API を利用するためのコアクラスです.</p>
+    * [使い方]
+    * 各メソッドをコールすると APIEvent または APIErrorEvent が発行されます.
+    * 各APIの成功/失敗はそのイベントをリッスンすることで判別し、
+    * レスポンスの内容は APIEvent.data を見ることで確認します.
+    * 
+    * @example 下記のコードは、Qiita に認証し、token を取得します.
+    * <listing version="3.0">
+    * public var qiita:Qiita;
+    * public var token:String;
+    * 
+    * public function init():void
+    * {
+    *   qiita = new Qiita();
+    *   qiita.addEventListener(APIEvent.AUTH_COMPLETE, authCompleteHandler);
+    *   qiita.addEventListener(APIErrorEvent.AUTH_FAILED, authFailedHandler);
+    * }
+    * 
+    * public function auth(uid:String, pw:String):void
+    * {
+    *   trace("auth start");
+    *   qiita.auth(uid, pw);
+    * }
+    * 
+    * public function authCompleteHandler(e:APIEvent):void
+    * {
+    *   var data:AuthData = e.data as AuthData;
+    *   token = data.token;
+    *   trace("auth complete");
+    * }
+    * 
+    * public function authFailedHandler(e:APIErrorEvent):void
+    * {
+    *   trace("auth failed");
+    *   trace("Error reason :", e.data.error);
+    * }
+    * </listing>
     * 
     * @auther Takefumi Katsuren
     */
@@ -152,13 +188,24 @@ package com.k2rn.qiita
         //
         //--------------------------------------------------------------------------
         /**
-        * コンストラクタ.
+        * <p>コンストラクタ.</p>
         */
         public function Qiita()
         {
             super(this);
         }
         
+        /**
+        * <p>Qiita のユーザー認証を行うメソッドです.</p>
+        * このメソッドをコールすると
+        * <li>APIEvent.AUTH_COMPLETE (認証成功時)</li>
+        * <li>APIErrorEvent.AUTH_FAILED (認証失敗時)</li>
+        * のいずれかのイベントが発行されます.
+        * AUTH_COMPLETE が発行された場合、APIEvent.data は AuthData が格納されます.
+        * 
+        * @param userId <p>ユーザーID.</p>
+        * @param password <p>パスワード.</p>
+        */
         public function auth(userId:String, password:String):void
         {
             var completeType:String = APIEvent.AUTH_COMPLETE;
@@ -194,13 +241,20 @@ package com.k2rn.qiita
             }
         }
         
-        public function getRateLimit(token:String=null):void
+        /**
+        * <p>残りAPIリクエスト回数（時間あたり）と、制限値を取得します.</p>
+        * このメソッドをコールすると
+        * <li>APIEvent.GET_RATE_LIMIT_COMPLETE (成功時)</li>
+        * <li>APIErrorEvent.GET_RATE_LIMIT_FAILED (失敗時)</li>
+        * のいずれかのイベントが発行されます.
+        * GET_RATE_LIMIT_COMPLETE が発行された場合、APIEvent.data は RageLimitData が格納されます.
+        */
+        public function getRateLimit():void
         {
             var completeType:String = APIEvent.GET_RATE_LIMIT_COMPLETE;
             var errorType:String    = APIErrorEvent.GET_RATE_LIMIT_FAILED;
             
             var api:GetRateLimit = new GetRateLimit(_endPoint);
-            api.token = token;
             
             var createDataFunction:Function = function(headers:Array):void {
                 var data:Object = JSON.parse(api.data);
@@ -222,6 +276,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+        * <p>ユーザーがフォローしているタグを取得します.</p>
+        * このメソッドをコールすると
+        * <li>APIEvent.GET_FOLLOWING_TAG_COMPLETE (成功時)</li>
+        * <li>APIErrorEvent.GET_FOLLOWING_TAG_FAILED (失敗時)</li>
+        * のいずれかのイベントが発行されます.
+        * APIEvent が発行された場合、APIEvent.data は Vector.<TagInfoData> が格納されます.
+        * また、ページャーが必要な場合は APIEvent.link を参照してください.
+        * 
+        * @param userId <p>取得したいユーザーのID.</p>
+        * @param token <p>任意でトークンを指定します.</p>
+        * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+        * @param page <p>レスポンスのオフセットです.</p>
+        */
         public function getFollowingTag(userId:String, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_FOLLOWING_TAG_COMPLETE;
@@ -260,6 +328,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+        * <p>ユーザーがフォローしているユーザーを取得します.</p>
+        * このメソッドをコールすると
+        * <li>APIEvent.GET_FOLLOWING_USER_COMPLETE (成功時)</li>
+        * <li>APIErrorEvent.GET_FOLLOWING_USER_FAILED (失敗時)</li>
+        * のいずれかのイベントが発行されます.
+        * APIEvent が発行された場合、APIEvent.data は Vector.<ItemUserData> が格納されます.
+        * また、ページャーが必要な場合は APIEvent.link を参照してください.
+        * 
+        * @param userId <p>取得したいユーザーのID.</p>
+        * @param token <p>任意でトークンを指定します.</p>
+        * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+        * @param page <p>レスポンスのオフセットです.</p>
+        */
         public function getFollowingUser(userId:String, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_FOLLOWING_USER_COMPLETE;
@@ -298,6 +380,19 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+        * <p>自分が投稿した記事を取得します.</p>
+        * このメソッドをコールすると
+        * <li>APIEvent.GET_MY_ITEM_LIST_COMPLETE (成功時)</li>
+        * <li>APIErrorEvent.GET_MY_ITEM_LIST_FAILED (失敗時)</li>
+        * のいずれかのイベントが発行されます.
+        * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+        * また、ページャーが必要な場合は APIEvent.link を参照してください.
+        * 
+        * @param token <p>トークンを指定します.</p> トークンの指定は必須です.
+        * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+        * @param page <p>レスポンスのオフセットです.</p>
+        */
         public function getMyItemList(token:String, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_MY_ITEM_LIST_COMPLETE;
@@ -335,6 +430,19 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>自分がストックした記事を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_MY_STOCK_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_MY_STOCK_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param token <p>トークンを指定します.</p> トークンの指定は必須です.
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getMyStockList(token:String, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_MY_STOCK_LIST_COMPLETE;
@@ -372,6 +480,19 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>新着記事を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_NEWLY_ITEM_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_NEWLY_ITEM_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getNewlyItemList(token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_NEWLY_ITEM_LIST_COMPLETE;
@@ -409,6 +530,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>そのタグがつけられている記事一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_TAG_ITEM_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_TAG_ITEM_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param tagId <p>取得したいタグを指定します.</p>
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getTagItemList(tagId:String, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_TAG_ITEM_LIST_COMPLETE;
@@ -447,6 +582,19 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>Qiitaに存在するタグの一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_TAG_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_TAG_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<TagInfoData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getTagList(token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_TAG_LIST_COMPLETE;
@@ -484,6 +632,18 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>ユーザーのプロフィールを取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_USER_INFO_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_USER_INFO_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は UserInfoData が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param userId <p>ユーザーのIDを指定します.</p>
+         * @param token <p>任意でトークンを指定します.</p>
+         */
         public function getUserInfo(userId:String, token:String=null):void
         {
             var completeType:String = APIEvent.GET_USER_INFO_COMPLETE;
@@ -513,6 +673,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>ユーザーの投稿した記事一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_USER_ITEM_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_USER_ITEM_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param userId <p>ユーザーのIDを指定します.</p>
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getUserItemList(userId:String, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_USER_ITEM_LIST_COMPLETE;
@@ -551,6 +725,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>ユーザーのストックした記事一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.GET_USER_STOCK_LIST_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.GET_USER_STOCK_LIST_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param userId <p>ユーザーのIDを指定します.</p>
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function getUserStockList(userId:String, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.GET_USER_STOCK_LIST_COMPLETE;
@@ -589,6 +777,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>記事を検索し、一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.SEARCH_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.SEARCH_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param query <p>検索クエリを指定します.</p>
+         * @param token <p>任意でトークンを指定します.</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function search(query:Vector.<String>, token:String=null, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.SEARCH_COMPLETE;
@@ -627,6 +829,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>記事を自分がストックした記事から検索し、一覧を取得します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.SEARCH_FROM_MY_STOCK_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.SEARCH_FROM_MY_STOCK_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は Vector.<ItemData> が格納されます.
+         * また、ページャーが必要な場合は APIEvent.link を参照してください.
+         * 
+         * @param query <p>検索クエリを指定します.</p>
+         * @param token <p>トークンを指定します. (必須)</p>
+         * @param perPage <p>一度のリクエストあたりのレスポンスの件数です.</p>
+         * @param page <p>レスポンスのオフセットです.</p>
+         */
         public function searchFromMyStock(query:Vector.<String>, token:String, perPage:uint=20, page:uint=0):void
         {
             var completeType:String = APIEvent.SEARCH_FROM_MY_STOCK_COMPLETE;
@@ -665,6 +881,17 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>自分の投稿した記事を削除します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.DELETE_ITEM_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.DELETE_ITEM_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は null です.
+         * 
+         * @param uuid <p>記事のUUIDです.</p>
+         * @param token <p>トークンを指定します. (必須)</p>
+         */
         public function deleteItem(uuid:String, token:String):void
         {
             var completeType:String = APIEvent.DELETE_ITEM_COMPLETE;
@@ -692,6 +919,22 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>記事を投稿します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.POST_ITEM_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.POST_ITEM_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は null です.
+         * 
+         * @param token <p>トークンを指定します. (必須)</p>
+         * @param title <p>記事のタイトルです.</p>
+         * @param body <p>記事の本文です.</p>
+         * @param tags <p>タグの一覧です.</p>
+         * @param isPrivate <p>限定公開の場合は true を指定します.</p>
+         * @param gist <p>gist にも投稿する場合は true を指定します.</p>
+         * @param tweet <p>ツイッターにも投稿する場合は true を指定します.</p>
+         */
         public function postItem(token:String, title:String, body:String, tags:Vector.<ItemTagData>,
                                  isPrivate:Boolean=true, gist:Boolean=false, tweet:Boolean=false):void
         {
@@ -725,6 +968,20 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>自分の投稿した記事を更新します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.UPDATE_ITEM_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.UPDATE_ITEM_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は null です.
+         * 
+         * @param token <p>トークンを指定します. (必須)</p>
+         * @param title <p>記事のタイトルです.</p>
+         * @param body <p>記事の本文です.</p>
+         * @param tags <p>タグの一覧です.</p>
+         * @param isPrivate <p>限定公開の場合は true を指定します.</p>
+         */
         public function updateItem(token:String, title:String, body:String, tags:Vector.<ItemTagData>, isPrivate:Boolean=false):void
         {
             var completeType:String = APIEvent.UPDATE_ITEM_COMPLETE;
@@ -755,6 +1012,17 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>記事をストックします.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.STOCK_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.STOCK_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は null です.
+         * 
+         * @param uuid <p>記事のUUIDを指定します.</p>
+         * @param token <p>トークンを指定します. (必須)</p>
+         */
         public function stock(uuid:String, token:String):void
         {
             var completeType:String = APIEvent.STOCK_COMPLETE;
@@ -782,6 +1050,17 @@ package com.k2rn.qiita
             }
         }
         
+        /**
+         * <p>記事のストックを解除します.</p>
+         * このメソッドをコールすると
+         * <li>APIEvent.UNSTOCK_COMPLETE (成功時)</li>
+         * <li>APIErrorEvent.UNSTOCK_FAILED (失敗時)</li>
+         * のいずれかのイベントが発行されます.
+         * APIEvent が発行された場合、APIEvent.data は null です.
+         * 
+         * @param uuid <p>記事のUUIDを指定します.</p>
+         * @param token <p>トークンを指定します. (必須)</p>
+         */
         public function unstock(uuid:String, token:String):void
         {
             var completeType:String = APIEvent.UNSTOCK_COMPLETE;
