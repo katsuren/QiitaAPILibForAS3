@@ -130,4 +130,5 @@ Qiita クラスは各APIをリクエストすると
     public function stockFailedHandler(e:APIErrorEvent):void
     {
         trace("stock failed");
+        trace("Error :", e.text);
     }
