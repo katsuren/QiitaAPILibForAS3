@@ -59,6 +59,7 @@ Qiita クラスは各APIをリクエストすると
     
     public function authCompleteHandler(event:APIEvent):void
     {
+      // リクエストに成功した場合はここで処理を行う
       var data:AuthData = event.data as AuthData;
       trace("auth complete!");
       trace("token :", data.token);
@@ -67,6 +68,66 @@ Qiita クラスは各APIをリクエストすると
     
     public function authFailedHandler(event:APIErrorEvent):void
     {
+      // なにかエラーが発生したらここで処理を行う
       trace("auth failed.");
-      trace("reason :", event.data.error);
+      trace("reason :", event.text);
+    }
+
+
+下記はユーザーの投稿を取得し、取得したすべての記事をストックする例です。  
+※デフォルトでは20件しか取得しないので、1000件投稿しているユーザーの場合はページャーをいじる必要があります
+
+    public var qiita:Qiita;
+    public var token:String = "some_dummy_token";
+    
+    public function init():void
+    {
+        qiita = new Qiita();
+        
+        // ユーザーの投稿取得用
+        qiita.addEventListener(APIEvent.GET_USER_ITEM_LIST_COMPLETE, getUserItemListCompleteHandler);
+        qiita.addEventListener(APIErrorEvent.GET_USER_ITEM_LIST_FALIED, getUserItemListFailedHandler);
+        
+        // ストックの確認用
+        qiita.addEventListener(APIEvent.STOCK_COMPLETE, stockCompleteHandler);
+        qiita.addEventListener(APIEvent.STOCK_FAILED, stockFailedHandler);
+    }
+    
+    public function getUserItemList(uid:String="katsuren"):void
+    {
+        // この場合は新着から100件の記事を取得します.
+        // 100件以上の記事がある場合は、一度の取得上限が100件のため、
+        // オフセットを指定して取得する必要があります.
+        // 例えば、右のようにします qiita.getUserItemList(uid, token, 100, 3);
+        qiita.getUserItemList(uid, token, 100);
+    }
+    
+    public function stock(uuid:String):void
+    {
+        qiita.stock(uuid, token);
+    }
+    
+    public function getUserItemListCompleteHandler(e:APIEvent):void
+    {
+        var list:Vector.<ItemData> = e.data as Vector.<ItemData>;
+        for (var i:int=0; i<list.length; i++) {
+            var item:ItemData = list[i];
+            stock(item.uuid);
+        }
+    }
+    
+    public function getUserItemListFailedHandler(e:APIErrorEvent):void
+    {
+        trace("getUserItemList failed!");
+        trace("Error :", e.text);
+    }
+    
+    public function stockCompleteHandler(e:APIEvent):void
+    {
+        trace("stock complete");
+    }
+    
+    public function stockFailedHandler(e:APIErrorEvent):void
+    {
+        trace("stock failed");
     }
